@@ -1,8 +1,29 @@
-const list = ["Hello", "world", "!"];
-const sublist = ["world", "!"];
+const fs = require("fs");
+const path = require('path');
 
-if (sublist.every(substring => list.includes(substring))) {
-  console.log("The list contains the sublist");
-} else {
-  console.log("The list does not contain the sublist");
-}
+const getDirectories = source =>
+  fs.readdirSync(source, { withFileTypes: true })
+    .filter(file => {
+      return fs.statSync(path.join(source, file.name)).isDirectory() && file.name !== ".git" && file.name !== "node_modules";
+    })
+    .map(dirent => dirent.name);
+
+const getDirectoryPaths = (source, dirArray) => {
+  const subDirs = getDirectories(source);
+  subDirs.forEach(subDir => {
+    dirArray.push(`${source}/${subDir}`);
+    getDirectoryPaths(`${source}/${subDir}`, dirArray);
+  });
+  return dirArray;
+};
+
+const fileDir = {};
+const dirArray = [];
+const rootDir = __dirname
+
+const directories = getDirectoryPaths(rootDir, dirArray);
+directories.forEach((directory, index) => {
+  fileDir[`dir${index + 1}`] = directory;
+});
+
+console.log(fileDir);
