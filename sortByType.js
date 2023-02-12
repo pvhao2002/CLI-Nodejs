@@ -26,14 +26,6 @@ const otherRegex = new RegExp(`^((?!${imageRegex.source}|${textRegex.source}|${b
 // const typeList = ["images", "texts", "bash", "other"]
 // const argFileType = myArgs[2]
 
-
-const createFolder = async (targetDirectory) => {
-    if (!fs.existsSync(targetDirectory)) {
-        await fs.promises.mkdir(targetDirectory, { recursive: true }, (err) => {
-            if (err) throw err;
-        });
-    }
-}
 const checkFileRegex = (file) => {
     switch (file) {
         case "images": return imageRegex;
@@ -43,47 +35,63 @@ const checkFileRegex = (file) => {
         default: return otherRegex;
     }
 }
-
-const copyFileToTargetDir = (targetDirectory, fileType) => {
+const copyFileToTargetDir = async (targetDirectory, fileType) => {
     const fileRegex = checkFileRegex(fileType);
-    fs.readdir(__dirname, (err, files) => {
-        if (err) throw err;
-        
-        files.forEach((file) => {
+    const files = await fs.promises.readdir(__dirname);
+    for (const file of files) {
+        if (file !== ".git" && file !== "node_modules"  && file !== ".gitignore") {
             const sourcePath = path.join(__dirname, file);
             const targetPath = path.join(targetDirectory, file);
             // Check if source directory contains '.git'
-            if (file === ".git") return;
-            fs.stat(file, (err, stat) => {
-                if (err) {
-                    return;
-                }
-                if (!stat.isFile()) {
-                    return;
-                }
-                if (file.match(fileRegex)) {
-                    fs.copyFile(sourcePath, targetPath, (copyError) => {
-                        if (copyError) throw copyError;
-                        fs.stat(sourcePath, (err, srcStat) => {
-                            if (err) throw err;
-                            fs.utimes(targetPath, srcStat.atime, srcStat.mtime, (err) => {
-                                if (err) throw err;
-                            });
-                        });
-                    });
-                }
-            })
-
-        });
-    });
+            const stat = await fs.promises.stat(sourcePath);
+            if (!stat.isFile()) {
+                continue;
+            }
+            if (file.match(fileRegex)) {
+                await fs.promises.copyFile(sourcePath, targetPath);
+            }
+        }
+    }
 }
 
-const handleFile = async (targetDirectory, fileType) => {
+const moveFileToTargetDir = async (source, targetDirectory, fileType) => {
+    const fileRegex = checkFileRegex(fileType);
+    const files = await fs.promises.readdir(source);
+    for (const file of files) {
+        if (file !== ".git" && file !== "node_modules"  && file !== ".gitignore") {
+            const sourcePath = path.join(source, file);
+            const targetPath = path.join(targetDirectory, file);
+            // Check if source directory contains '.git'
+            const stat = await fs.promises.stat(sourcePath);
+            if (!stat.isFile()) {
+                continue;
+            }
+            if (file.match(fileRegex)) {
+                await fs.promises.rename(sourcePath, targetPath);
+            }
+        }
+    }
+}
+
+const handleFile = async (source, targetDirectory, fileType) => {
     targetDirectory = path.join(targetDirectory, fileType)
-    await createFolder(targetDirectory);
-    copyFileToTargetDir(targetDirectory, fileType);
+    if (!fs.existsSync(targetDirectory)) {
+        await fs.promises.mkdir(targetDirectory, { recursive: true });
+    }
+    await moveFileToTargetDir(source, targetDirectory, fileType);
+}
+
+const handleFileRoot = async (targetDirectory, fileType) => {
+    targetDirectory = path.join(targetDirectory, fileType)
+    if (!fs.existsSync(targetDirectory)) {
+        await fs.promises.mkdir(targetDirectory, { recursive: true }, (err) => {
+            if (err) throw err;
+        });
+    }
+    await copyFileToTargetDir(targetDirectory, fileType);
 }
 
 module.exports = {
-    handleFile: handleFile
+    handleFile: handleFile,
+    handleFileRoot: handleFileRoot
 }

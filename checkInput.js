@@ -1,7 +1,10 @@
 const fs = require('fs')
 const path = require('path');
+const util = require("util");
 var myArgs = process.argv.slice(2);
-
+const mkdir = util.promisify(fs.mkdir);
+const readdir = util.promisify(fs.readdir);
+const exists = util.promisify(fs.exists);
 const validContext = (_context) => {
     if (myArgs.length === 0) {
         console.log("!! Wrong. Please add option!");
@@ -17,35 +20,33 @@ const validContext = (_context) => {
 
 
 const handleInputCommand = async (arg) => {
-    const context = arg[0]
+    const context = arg[0];
 
     if (!validContext(context)) {
-        process.exit(0)
+        process.exit(0);
     }
+
     const countDotInDir = context.split(".").length - 1 > 1;
     if (countDotInDir) {
         console.log("!! Format file context wrong!");
-        process.exit(0)
+        process.exit(0);
     }
+
     if (context === ".") {
         return;
     }
+
     if (!context.includes("./")) {
         console.log("!! Format file context wrong!");
-        process.exit(0)
+        process.exit(0);
     }
-    if (!fs.existsSync(context)) {
-        const dir = path.join(__dirname, context)
-        await fs.promises.mkdir(dir, { recursive: true }, (err) => {
-            if (err) throw err;
-        });
-        return;
-    }
-}
+
+
+};
 
 const listOptionType = ["images", "texts", "bash", "others"]
 const listOption = ["--type", "--size", "--name", "--modify"]
-const checkOptionType = (prog) => {
+const checkOptionType = async (prog) => {
     const options = prog.opts();
     if (myArgs.includes("--type")) {
         if (!options.type) {
@@ -71,6 +72,17 @@ const checkOptionType = (prog) => {
                 console.log("!! Category file is within ['images', 'texts', 'bash', 'others']");
                 process.exit(0)
             }
+        }
+    }
+    
+    const dirExists = await exists(myArgs[0]);
+    if (!dirExists) {
+        const dir = path.join(__dirname, myArgs[0]);
+        try {
+            await mkdir(dir, { recursive: true });
+            const files = await readdir(__dirname);
+        } catch (err) {
+            process.exit(0)
         }
     }
 
