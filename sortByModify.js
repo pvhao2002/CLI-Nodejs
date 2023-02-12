@@ -31,37 +31,53 @@ const classifyByTime = (fileTime) => {
     return "Other";
 }
 
-const handleFile = (context) => {
-    fs.readdir(__dirname, (err, files) => {
-        if (err) {
-            return;
-        }
-
-        files.forEach(file => {
-            fs.stat(file, (error, stat) => {
-                if (error) {
-                    return console.error(error);
-                }
-                let classifiedFolder = path.join(context, classifyByTime(stat.mtime));
-                if (!fs.existsSync(classifiedFolder)) {
-                    fs.mkdirSync(classifiedFolder, { recursive: true }, (err) => {
-                        if (err) throw err;
-                    });
-                }
-                let filePath = path.join(__dirname, file);
-                let destPath = path.join(classifiedFolder, file);
-                fs.copyFile(filePath, destPath, err => {
-                    if (err) {
-                        return;
+const handleFile = async (context) => {
+    try {
+        const files = await fs.promises.readdir(context);
+        for (const file of files) {
+            if (file !== ".git" && file !== "node_modules") {
+                const stat = await fs.promises.stat(path.join(context, file));
+                if (stat.isFile()) {
+                    let classifiedFolder = path.join(context, classifyByTime(stat.mtime));
+                    if (!fs.existsSync(classifiedFolder)) {
+                        fs.mkdirSync(classifiedFolder, { recursive: true });
                     }
-                });
-            });
+                    let filePath = path.join(context, file);
+                    let destPath = path.join(classifiedFolder, file);
+                    await fs.promises.rename(filePath, destPath);
+                }
 
-        });
-    });
-}
+            }
+        }
+    } catch (err) {
+        console.error("modify: " + err);
+    }
+};
+
+const handleFileRoot = async (context) => {
+    try {
+        const files = await fs.promises.readdir(__dirname);
+        for (const file of files) {
+            if (file !== ".git" && file !== "node_modules") {
+                const stat = await fs.promises.stat(path.join(__dirname, file));
+                if (stat.isFile()) {
+                    let classifiedFolder = path.join(context, classifyByTime(stat.mtime));
+                    if (!fs.existsSync(classifiedFolder)) {
+                        fs.mkdirSync(classifiedFolder, { recursive: true });
+                    }
+                    let filePath = path.join(__dirname, file);
+                    let destPath = path.join(classifiedFolder, file);
+                    await fs.promises.copyFile(filePath, destPath);
+                }
+            }
+        }
+    } catch (err) {
+        console.error(`modify: ${err}`);
+    }
+};
 
 module.exports = {
-    handleFile: handleFile
+    handleFile: handleFile,
+    handleFileRoot: handleFileRoot
 }
 
